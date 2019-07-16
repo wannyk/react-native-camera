@@ -58,6 +58,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   private boolean mShouldGoogleDetectBarcodes = false;
   private boolean mShouldScanBarCodes = false;
   private boolean mShouldRecognizeText = false;
+  private boolean mShouldTakePicture = false;
   private int mFaceDetectorMode = RNFaceDetector.FAST_MODE;
   private int mFaceDetectionLandmarks = RNFaceDetector.NO_LANDMARKS;
   private int mFaceDetectionClassifications = RNFaceDetector.NO_CLASSIFICATIONS;
@@ -81,24 +82,6 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
       @Override
       public void onMountError(CameraView cameraView) {
         RNCameraViewHelper.emitMountErrorEvent(cameraView, "Camera view threw an error - component could not be rendered.");
-      }
-
-      @Override
-      public void onPictureTaken(CameraView cameraView, final byte[] data, int deviceOrientation) {
-        Promise promise = mPictureTakenPromises.poll();
-        ReadableMap options = mPictureTakenOptions.remove(promise);
-        if (options.hasKey("fastMode") && options.getBoolean("fastMode")) {
-            promise.resolve(null);
-        }
-        final File cacheDirectory = mPictureTakenDirectories.remove(promise);
-        if(Build.VERSION.SDK_INT >= 11/*HONEYCOMB*/) {
-          new ResolveTakenPictureAsyncTask(data, promise, options, cacheDirectory, deviceOrientation, RNCameraView.this)
-                  .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-        } else {
-          new ResolveTakenPictureAsyncTask(data, promise, options, cacheDirectory, deviceOrientation, RNCameraView.this)
-                  .execute();
-        }
-        RNCameraViewHelper.emitPictureTakenEvent(cameraView);
       }
 
       @Override
@@ -127,6 +110,23 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
         boolean willCallFaceTask = mShouldDetectFaces && !faceDetectorTaskLock && cameraView instanceof FaceDetectorAsyncTaskDelegate;
         boolean willCallGoogleBarcodeTask = mShouldGoogleDetectBarcodes && !googleBarcodeDetectorTaskLock && cameraView instanceof BarcodeDetectorAsyncTaskDelegate;
         boolean willCallTextTask = mShouldRecognizeText && !textRecognizerTaskLock && cameraView instanceof TextRecognizerAsyncTaskDelegate;
+
+        if (mShouldTakePicture) {
+          mShouldTakePicture = false;
+          Promise promise = mPictureTakenPromises.poll();
+          ReadableMap options = mPictureTakenOptions.remove(promise);
+          if (options.hasKey("fastMode") && options.getBoolean("fastMode")) {
+            promise.resolve(null);
+          }
+          final File cacheDirectory = mPictureTakenDirectories.remove(promise);
+          if(Build.VERSION.SDK_INT >= 11/*HONEYCOMB*/) {
+            new ResolveTakenPictureAsyncTask(data, width, height, promise, options, cacheDirectory, correctRotation, RNCameraView.this).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+          } else {
+            new ResolveTakenPictureAsyncTask(data, width, height, promise, options, cacheDirectory, correctRotation, RNCameraView.this).execute();
+          }
+          RNCameraViewHelper.emitPictureTakenEvent(cameraView);
+        }
+
         if (!willCallBarCodeTask && !willCallFaceTask && !willCallGoogleBarcodeTask && !willCallTextTask) {
           return;
         }
@@ -234,14 +234,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
       MediaActionSound sound = new MediaActionSound();
       sound.play(MediaActionSound.SHUTTER_CLICK);
     }
-    try {
-      super.takePicture(options);
-    } catch (Exception e) {
-      mPictureTakenPromises.remove(promise);
-      mPictureTakenOptions.remove(promise);
-      mPictureTakenDirectories.remove(promise);
-      throw e;
-    }
+    mShouldTakePicture = true;
   }
 
   @Override
@@ -511,7 +504,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   }
 
   private boolean hasCameraPermissions() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+    if (Build.VERSION.SDK_INT >= 23) {
       int result = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.CAMERA);
       return result == PackageManager.PERMISSION_GRANTED;
     } else {

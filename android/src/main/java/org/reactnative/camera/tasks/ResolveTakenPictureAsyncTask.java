@@ -3,7 +3,10 @@ package org.reactnative.camera.tasks;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
 import android.graphics.Matrix;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.net.Uri;
 import android.os.AsyncTask;
 import androidx.exifinterface.media.ExifInterface;
@@ -27,16 +30,20 @@ public class ResolveTakenPictureAsyncTask extends AsyncTask<Void, Void, Writable
     private static final String ERROR_TAG = "E_TAKING_PICTURE_FAILED";
     private Promise mPromise;
     private byte[] mImageData;
+    private int mImageDataWidth;
+    private int mImageDataHeight;
     private ReadableMap mOptions;
     private File mCacheDirectory;
     private Bitmap mBitmap;
     private int mDeviceOrientation;
     private PictureSavedDelegate mPictureSavedDelegate;
 
-    public ResolveTakenPictureAsyncTask(byte[] imageData, Promise promise, ReadableMap options, File cacheDirectory, int deviceOrientation, PictureSavedDelegate delegate) {
+    public ResolveTakenPictureAsyncTask(byte[] imageData, int width, int height, Promise promise, ReadableMap options, File cacheDirectory, int deviceOrientation, PictureSavedDelegate delegate) {
         mPromise = promise;
         mOptions = options;
         mImageData = imageData;
+        mImageDataWidth = width;
+        mImageDataHeight = height;
         mCacheDirectory = cacheDirectory;
         mDeviceOrientation = deviceOrientation;
         mPictureSavedDelegate = delegate;
@@ -89,8 +96,8 @@ public class ResolveTakenPictureAsyncTask extends AsyncTask<Void, Void, Writable
 
         // we need the stream only for photos from a device
         if (mBitmap == null) {
-            mBitmap = BitmapFactory.decodeByteArray(mImageData, 0, mImageData.length);
-            inputStream = new ByteArrayInputStream(mImageData);
+            mBitmap = decodeNV21(mImageData, mImageDataWidth, mImageDataHeight);
+            inputStream = new ByteArrayInputStream(mImageData); // TODO
         }
 
         try {
@@ -280,6 +287,19 @@ public class ResolveTakenPictureAsyncTask extends AsyncTask<Void, Void, Writable
                 mPromise.resolve(response);
             }
         }
+    }
+
+    private Bitmap decodeNV21(byte[] data, int w, int h){
+        Bitmap retimage = null;
+        //Get the YUV image
+        YuvImage yuv_image = new YuvImage(data, ImageFormat.NV21, w, h, null);
+        //Convert Yuv to Jpeg
+        Rect rect = new Rect(0, 0, w, h);
+        ByteArrayOutputStream out_stream = new ByteArrayOutputStream();
+        yuv_image.compressToJpeg(rect, 100, out_stream);
+        //Convert Yuv to jpeg
+        retimage = BitmapFactory.decodeByteArray(out_stream.toByteArray(), 0, out_stream.size());
+        return retimage;
     }
 
 }
