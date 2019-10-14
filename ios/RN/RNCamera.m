@@ -401,7 +401,11 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
         
         CGImageRef takenCGImage = takenImage.CGImage;
         CGSize previewSize;
-        if (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation])) {
+        __block BOOL isPortrait;
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            isPortrait = UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation]);
+        });
+        if (isPortrait) {
             previewSize = CGSizeMake(self.previewLayer.frame.size.height, self.previewLayer.frame.size.width);
         } else {
             previewSize = CGSizeMake(self.previewLayer.frame.size.width, self.previewLayer.frame.size.height);
