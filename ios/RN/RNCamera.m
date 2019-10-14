@@ -414,6 +414,26 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
         CGRect croppedSize = AVMakeRectWithAspectRatioInsideRect(previewSize, cropRect);
         takenImage = [RNImageUtils cropImage:takenImage toRect:croppedSize];
         
+        if ([options valueForKey:@"crop"] != nil) {
+            CGFloat scale = takenImage.size.width/previewSize.width;
+            if (isPortrait) {
+                takenImage = [RNImageUtils cropImage:takenImage toRect:CGRectMake(
+                                                                                  [options[@"crop"][@"y"] floatValue]*scale,
+                                                                                  [options[@"crop"][@"x"] floatValue]*scale,
+                                                                                  [options[@"crop"][@"height"] floatValue]*scale,
+                                                                                  [options[@"crop"][@"width"] floatValue]*scale
+                                                                                  )];
+            }
+            else {
+                takenImage = [RNImageUtils cropImage:takenImage toRect:CGRectMake(
+                                                                                  [options[@"crop"][@"x"] floatValue]*scale,
+                                                                                  [options[@"crop"][@"y"] floatValue]*scale,
+                                                                                  [options[@"crop"][@"width"] floatValue]*scale,
+                                                                                  [options[@"crop"][@"height"] floatValue]*scale
+                                                                                  )];
+
+            }
+        }
         if ([options[@"mirrorImage"] boolValue]) {
             takenImage = [RNImageUtils mirrorImage:takenImage];
         }
