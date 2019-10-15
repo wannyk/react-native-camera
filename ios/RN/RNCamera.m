@@ -423,6 +423,9 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
                                                                                   [options[@"crop"][@"height"] floatValue]*scale,
                                                                                   [options[@"crop"][@"width"] floatValue]*scale
                                                                                   )];
+                takenImage = [[UIImage alloc] initWithCGImage:takenImage.CGImage
+                                                        scale:1.0
+                                                  orientation:UIImageOrientationRight];
             }
             else {
                 takenImage = [RNImageUtils cropImage:takenImage toRect:CGRectMake(
