@@ -120,9 +120,9 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
           }
           final File cacheDirectory = mPictureTakenDirectories.remove(promise);
           if(Build.VERSION.SDK_INT >= 11/*HONEYCOMB*/) {
-            new ResolveTakenPictureAsyncTask(data, width, height, promise, options, cacheDirectory, correctRotation, RNCameraView.this).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            new ResolveTakenPictureAsyncTask(data, width, height, getResources().getDisplayMetrics().density, getWidth(), getHeight(), promise, options, cacheDirectory, correctRotation, RNCameraView.this).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
           } else {
-            new ResolveTakenPictureAsyncTask(data, width, height, promise, options, cacheDirectory, correctRotation, RNCameraView.this).execute();
+            new ResolveTakenPictureAsyncTask(data, width, height, getResources().getDisplayMetrics().density, getWidth(), getHeight(), promise, options, cacheDirectory, correctRotation, RNCameraView.this).execute();
           }
           RNCameraViewHelper.emitPictureTakenEvent(cameraView);
         }

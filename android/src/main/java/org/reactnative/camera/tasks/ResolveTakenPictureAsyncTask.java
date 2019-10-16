@@ -32,18 +32,24 @@ public class ResolveTakenPictureAsyncTask extends AsyncTask<Void, Void, Writable
     private byte[] mImageData;
     private int mImageDataWidth;
     private int mImageDataHeight;
+    private float mPreviewDensity;
+    private int mPreviewWidth;
+    private int mPreviewHeight;
     private ReadableMap mOptions;
     private File mCacheDirectory;
     private Bitmap mBitmap;
     private int mDeviceOrientation;
     private PictureSavedDelegate mPictureSavedDelegate;
 
-    public ResolveTakenPictureAsyncTask(byte[] imageData, int width, int height, Promise promise, ReadableMap options, File cacheDirectory, int deviceOrientation, PictureSavedDelegate delegate) {
+    public ResolveTakenPictureAsyncTask(byte[] imageData, int width, int height, float previewDensity, int previewWidth, int previewHeight, Promise promise, ReadableMap options, File cacheDirectory, int deviceOrientation, PictureSavedDelegate delegate) {
         mPromise = promise;
         mOptions = options;
         mImageData = imageData;
         mImageDataWidth = width;
         mImageDataHeight = height;
+        mPreviewDensity = previewDensity;
+        mPreviewWidth = previewWidth;
+        mPreviewHeight = previewHeight;
         mCacheDirectory = cacheDirectory;
         mDeviceOrientation = deviceOrientation;
         mPictureSavedDelegate = delegate;
@@ -115,6 +121,21 @@ public class ResolveTakenPictureAsyncTask extends AsyncTask<Void, Void, Writable
                         && orientation != ExifInterface.ORIENTATION_UNDEFINED;
                 if (fixOrientation) {
                     mBitmap = rotateBitmap(mBitmap, getImageRotation(orientation));
+                }
+
+                if (mOptions.hasKey("crop") && response.hasKey("pictureOrientation")) {
+                    mBitmap = rotateBitmap(mBitmap, response.getInt("pictureOrientation"));
+
+                    ReadableMap crop = mOptions.getMap("crop");
+                    if (crop.hasKey("x") && crop.hasKey("y") && crop.hasKey("width") && crop.hasKey("height")) {
+                        double scaleX = mPreviewWidth / (mBitmap.getWidth() * mPreviewDensity);
+                        double scaleY = mPreviewHeight / (mBitmap.getHeight() * mPreviewDensity);
+                        int width = (int)(crop.getDouble("width")/scaleX);
+                        int height = (int)(crop.getDouble("height")/scaleY);
+                        int x = mBitmap.getWidth() - (int)(crop.getDouble("x")/scaleX) - width;
+                        int y = (int)(crop.getDouble("y")/scaleY);
+                        mBitmap = cropBitmap(mBitmap, x, y, width, height);
+                    }
                 }
 
                 if (mOptions.hasKey("width")) {
@@ -203,6 +224,18 @@ public class ResolveTakenPictureAsyncTask extends AsyncTask<Void, Void, Writable
 
         // An exception had to occur, promise has already been rejected. Do not try to resolve it again.
         return null;
+    }
+
+    private Bitmap cropBitmap(Bitmap source, int x, int y, int w, int h) {
+        if (x<0) x = 0;
+        if (y<0) y = 0;
+        int rightMargin = x+w-source.getWidth();
+        int bottomMargin = y+h-source.getHeight();
+        if (rightMargin>0) w -= rightMargin;
+        if (bottomMargin>0) h -= bottomMargin;
+        if (w<1) w = 1;
+        if (h<1) h = 1;
+        return Bitmap.createBitmap(source, x, y, w, h);
     }
 
     private Bitmap rotateBitmap(Bitmap source, int angle) {
